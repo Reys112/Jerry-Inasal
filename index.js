@@ -13,15 +13,20 @@ app.use(express.json());
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET;
-const RETURN_URL = 'https://jerrys-inasal.onrender.com/thankyou.html'; // ✅ Thank-you page
+const RETURN_URL = 'https://jerrys-inasal.onrender.com/thankyou.html';
 
 app.post('/order', async (req, res) => {
-  const { dish, location, contact, date, time } = req.body;
+  let { dish, location, contact, date, time } = req.body;
+
+  // ✅ Convert dish array to comma-separated string (if it's an array)
+  if (Array.isArray(dish)) {
+    dish = dish.join(', ');
+  }
 
   try {
     const amount = 2000; // ₱20.00 in centavos
 
-    // ✅ Create PayMongo Checkout Session with description
+    // ✅ Create PayMongo Checkout Session
     const checkoutResponse = await axios.post(
       'https://api.paymongo.com/v1/checkout_sessions',
       {
@@ -29,7 +34,7 @@ app.post('/order', async (req, res) => {
           attributes: {
             send_email_receipt: true,
             show_description: true,
-            description: `Order for ${dish}`, // ✅ FIXED: required field
+            description: `Order for ${dish}`,
             show_line_items: true,
             line_items: [
               {
@@ -81,6 +86,7 @@ app.post('/order', async (req, res) => {
   }
 });
 
+// ✅ Webhook handler (optional)
 app.post('/webhook', async (req, res) => {
   const payload = req.body;
 
