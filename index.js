@@ -12,11 +12,12 @@ app.use(express.json());
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET;
-const RETURN_URL = 'https://jerrys-inasal.onrender.com/thankyou.html';
+const BASE_URL = 'https://jerrys-inasal.onrender.com';
+const RETURN_URL = `${BASE_URL}/thankyou.html`;
 
 // ✅ Create new order and generate checkout URL
 app.post('/order', async (req, res) => {
-  let { dish, location, contact, date, time } = req.body;
+  const { dish, location, contact, date, time } = req.body;
 
   const dishArray = Array.isArray(dish)
     ? dish
@@ -47,7 +48,6 @@ app.post('/order', async (req, res) => {
     return res.status(400).json({ error: 'No valid dishes selected.' });
   }
 
-  // ✅ Insert to Supabase and get order ID
   const { data: orderData, error: insertError } = await supabase
     .from('orders')
     .insert([{
@@ -64,11 +64,10 @@ app.post('/order', async (req, res) => {
 
   if (insertError) {
     console.error('Supabase insert error:', insertError);
-    return res.status(500).json({ error: 'Error saving order.' });
+    return res.status(500).json({ error: 'Failed to save order.' });
   }
 
   try {
-    // Step 1: Create checkout session
     const sessionResponse = await axios.post(
       'https://api.paymongo.com/v1/checkout_sessions',
       {
@@ -83,8 +82,8 @@ app.post('/order', async (req, res) => {
               order_id: orderData.id
             },
             payment_method_types: ['gcash', 'card', 'paymaya'],
-            success_url: RETURN_URL, // Will handle on thankyou.html using session ID
-            cancel_url: RETURN_URL,
+            success_url: `${RETURN_URL}?checkout_session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: BASE_URL,
           }
         }
       },
@@ -96,20 +95,16 @@ app.post('/order', async (req, res) => {
       }
     );
 
-    // Step 2: Get session ID and append to success URL
-    const sessionData = sessionResponse.data.data;
-    const sessionId = sessionData.id;
-    const checkoutUrl = sessionData.attributes.checkout_url + `?checkout_session_id=${sessionId}`;
-
+    const checkoutUrl = sessionResponse.data.data.attributes.checkout_url;
     res.json({ url: checkoutUrl });
 
   } catch (err) {
-    console.error('PayMongo error:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Payment failed.' });
+    console.error('PayMongo session creation failed:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Unable to generate checkout session.' });
   }
 });
 
-// ✅ Verify Payment after redirect from PayMongo
+// ✅ Verify payment status after redirect
 app.get('/verify-payment', async (req, res) => {
   const sessionId = req.query.sessionId;
 
@@ -130,16 +125,17 @@ app.get('/verify-payment', async (req, res) => {
     const orderId = session.attributes.metadata?.order_id;
 
     if (paymentStatus === 'paid' && orderId) {
-      await supabase.from('orders')
+      await supabase
+        .from('orders')
         .update({ payment_status: 'paid', status: 'Confirmed' })
         .eq('id', orderId);
     }
 
-    return res.json({ status: paymentStatus, order_id: orderId });
+    res.json({ status: paymentStatus, order_id: orderId });
 
   } catch (error) {
-    console.error('Error verifying payment:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to verify payment' });
+    console.error('Failed to verify session:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Payment verification failed.' });
   }
 });
 
