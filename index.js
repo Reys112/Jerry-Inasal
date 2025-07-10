@@ -81,7 +81,7 @@ app.post('/order', async (req, res) => {
               order_id: orderData.id
             },
             payment_method_types: ['gcash', 'card', 'paymaya'],
-            success_url: `${RETURN_URL}?checkout_session_id={CHECKOUT_SESSION_ID}`, ✅ FIXED HERE
+            success_url: `${RETURN_URL}?checkout_session_id={CHECKOUT_SESSION_ID}`, 
             cancel_url: BASE_URL,
           }
         }
