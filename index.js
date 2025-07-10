@@ -1,4 +1,4 @@
-// index.js (ESM version)
+// index.js (ESM version for Render)
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -11,15 +11,43 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Supabase config
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
+// Replace with your public PayMongo secret key
 const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET;
-const RETURN_URL = 'https://your-website.com/success.html'; // Update this
 
+// ✅ This must be your frontend hosted URL
+const RETURN_URL = 'https://jerrys-inasal.onrender.com/thankyou.html';
+
+// ➤ ORDER CREATION AND PAYMENT SESSION
 app.post('/order', async (req, res) => {
   const { dish, location, contact, date, time } = req.body;
 
   try {
+    // Insert order first and retrieve the generated ID
+    const { data: insertedOrder, error } = await supabase
+      .from('orders')
+      .insert([
+        {
+          dish,
+          location,
+          contact,
+          date,
+          time,
+          payment_status: 'unpaid',
+          status: 'Pending',
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase insert error:', error);
+      return res.status(500).json({ error: 'Error saving order.' });
+    }
+
+    // Create a PayMongo Checkout session with metadata for order_id
     const checkoutResponse = await axios.post(
       'https://api.paymongo.com/v1/checkout_sessions',
       {
@@ -31,13 +59,16 @@ app.post('/order', async (req, res) => {
             line_items: [
               {
                 name: dish,
-                amount: 10000, // PHP 100
+                amount: 10000, // ₱100.00
                 currency: 'PHP',
                 quantity: 1,
               },
             ],
             success_url: RETURN_URL,
             cancel_url: RETURN_URL,
+            metadata: {
+              order_id: insertedOrder.id,
+            },
           },
         },
       },
@@ -50,31 +81,15 @@ app.post('/order', async (req, res) => {
     );
 
     const checkout_url = checkoutResponse.data.data.attributes.checkout_url;
-
-    const { error } = await supabase.from('orders').insert([
-      {
-        dish,
-        location,
-        contact,
-        date,
-        time,
-        payment_status: 'unpaid',
-        status: 'Pending',
-      },
-    ]);
-
-    if (error) {
-      console.error('Supabase error:', error);
-      return res.status(500).json({ error: 'Error saving order.' });
-    }
-
     res.json({ url: checkout_url });
+
   } catch (err) {
     console.error('PayMongo error:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Payment failed.' });
+    res.status(500).json({ error: 'Payment session failed.' });
   }
 });
 
+// ➤ WEBHOOK (PayMongo POSTs here after payment success)
 app.post('/webhook', async (req, res) => {
   const payload = req.body;
   const reference = payload?.data?.attributes?.payment?.metadata?.order_id;
@@ -90,4 +105,4 @@ app.post('/webhook', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ API running on port ${PORT}`));
