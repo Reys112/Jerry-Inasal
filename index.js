@@ -15,7 +15,6 @@ const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET;
 const BASE_URL = 'https://jerrys-inasal.onrender.com';
 const RETURN_URL = `${BASE_URL}/thankyou.html`;
 
-// ✅ Create new order and generate checkout URL
 app.post('/order', async (req, res) => {
   const { dish, location, contact, date, time } = req.body;
 
@@ -82,7 +81,7 @@ app.post('/order', async (req, res) => {
               order_id: orderData.id
             },
             payment_method_types: ['gcash', 'card', 'paymaya'],
-            success_url: `${RETURN_URL}?checkout_session_id={CHECKOUT_SESSION_ID}`,
+            success_url: `${RETURN_URL}?checkout_session_id={{CHECKOUT_SESSION_ID}}`, // ✅ FIXED HERE
             cancel_url: BASE_URL,
           }
         }
@@ -104,7 +103,6 @@ app.post('/order', async (req, res) => {
   }
 });
 
-// ✅ Verify payment status after redirect
 app.get('/verify-payment', async (req, res) => {
   const sessionId = req.query.sessionId;
 
