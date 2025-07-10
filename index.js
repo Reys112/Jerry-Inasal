@@ -13,16 +13,15 @@ app.use(express.json());
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET;
-const RETURN_URL = 'https://jerrys-inasal.onrender.com/thankyou.html'; // ✅ Your thank-you page
+const RETURN_URL = 'https://jerrys-inasal.onrender.com/thankyou.html'; // ✅ Thank-you page
 
 app.post('/order', async (req, res) => {
   const { dish, location, contact, date, time } = req.body;
 
   try {
-    // Fixed price: ₱5.00 = 500 centavos
-    const amount = 500;
+    const amount = 500; // ₱5.00 in centavos
 
-    // ✅ Create PayMongo Checkout Session
+    // ✅ Create PayMongo Checkout Session with description
     const checkoutResponse = await axios.post(
       'https://api.paymongo.com/v1/checkout_sessions',
       {
@@ -30,6 +29,7 @@ app.post('/order', async (req, res) => {
           attributes: {
             send_email_receipt: true,
             show_description: true,
+            description: `Order for ${dish}`, // ✅ FIXED: required field
             show_line_items: true,
             line_items: [
               {
@@ -39,7 +39,7 @@ app.post('/order', async (req, res) => {
                 quantity: 1
               }
             ],
-            payment_method_types: ['gcash', 'card', 'paymaya'], // ✅ support GCash, Card, PayMaya
+            payment_method_types: ['gcash', 'card', 'paymaya'],
             success_url: RETURN_URL,
             cancel_url: RETURN_URL,
           }
@@ -55,7 +55,7 @@ app.post('/order', async (req, res) => {
 
     const checkout_url = checkoutResponse.data.data.attributes.checkout_url;
 
-    // ✅ Save order to Supabase
+    // ✅ Save to Supabase
     const { error } = await supabase.from('orders').insert([
       {
         dish,
@@ -84,7 +84,6 @@ app.post('/order', async (req, res) => {
 app.post('/webhook', async (req, res) => {
   const payload = req.body;
 
-  // Optional: add raw logging
   console.log('Webhook received:', JSON.stringify(payload));
 
   const reference = payload?.data?.attributes?.payment?.metadata?.order_id;
