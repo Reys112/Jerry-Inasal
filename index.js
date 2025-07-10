@@ -19,7 +19,7 @@ app.post('/order', async (req, res) => {
   const { dish, location, contact, date, time } = req.body;
 
   try {
-    const amount = 500; // ₱5.00 in centavos
+    const amount = 2000; // ₱20.00 in centavos
 
     // ✅ Create PayMongo Checkout Session with description
     const checkoutResponse = await axios.post(
