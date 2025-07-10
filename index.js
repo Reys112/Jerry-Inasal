@@ -1,4 +1,69 @@
-import express from 'express';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Thank You | Jerry's Inasal</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #f7fff5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .thank-you-box {
+      background-color: #ffffff;
+      border: 2px solid #28a745;
+      padding: 40px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 500px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .thank-you-box h1 {
+      color: #28a745;
+      font-size: 2.5rem;
+      margin-bottom: 15px;
+    }
+    .thank-you-box p {
+      font-size: 1.2rem;
+    }
+    .thank-you-box a {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="thank-you-box">
+    <h1>Thank You!</h1>
+    <p>Your order has been placed successfully. We’ll contact you soon!</p>
+    <p class="mt-3"><strong>God bless and enjoy your meal, Ka-Inasal!</strong></p>
+    <a href="index.html" class="btn btn-success mt-4">← Back to Home</a>
+  </div>
+
+  <script>
+    // ✅ Extract checkout_session_id from URL
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('checkout_session_id');
+
+    if (sessionId) {
+      fetch(`https://jerry-inasal.onrender.com/verify-payment?sessionId=${sessionId}`)
+        .then(response => response.json())
+        .then(data => {
+          console.log('✅ Payment verified:', data);
+        })
+        .catch(err => {
+          console.error('❌ Error verifying payment:', err);
+        });
+    } else {
+      console.warn('⚠️ No checkout_session_id found in URL');
+    }
+  </script>
+</body>
+</html>import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
