@@ -8,17 +8,17 @@ dotenv.config();
 
 const app = express();
 
-// Webhook must be raw before using express.json()
+// Raw parser for webhook before JSON middleware
 app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(cors());
-app.use(express.json()); // JSON parser for other routes
+app.use(express.json()); // for all other routes
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET;
 const BASE_URL = 'https://jerrys-inasal.onrender.com';
 const RETURN_URL = `${BASE_URL}/thankyou.html`;
 
-// ✅ Order route
+// ✅ Handle order creation and create checkout session
 app.post('/order', async (req, res) => {
   const { dish, location, contact, date, time } = req.body;
 
@@ -85,7 +85,7 @@ app.post('/order', async (req, res) => {
               order_id: orderData.id
             },
             payment_method_types: ['gcash', 'card', 'paymaya'],
-            success_url: `${RETURN_URL}?checkout_session_id={CHECKOUT_SESSION_ID}`,
+            success_url: RETURN_URL,
             cancel_url: BASE_URL,
           }
         }
@@ -107,7 +107,7 @@ app.post('/order', async (req, res) => {
   }
 });
 
-// ✅ Webhook route (comes after .raw setup)
+// ✅ Webhook to auto-confirm order in Supabase after payment
 app.post('/webhook', async (req, res) => {
   try {
     const event = JSON.parse(req.body.toString());
@@ -126,7 +126,7 @@ app.post('/webhook', async (req, res) => {
 
         return res.status(200).json({ message: 'Order updated successfully' });
       } else {
-        console.warn('⚠️ Missing order ID in metadata');
+        console.warn('⚠️ Webhook: Missing order ID in metadata');
         return res.status(400).json({ error: 'Missing order_id in metadata' });
       }
     }
@@ -138,7 +138,7 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// ✅ Manual payment verification for thankyou.html
+// ✅ Manual payment check (optional, for thankyou.html fallback)
 app.get('/verify-payment', async (req, res) => {
   const sessionId = req.query.sessionId;
 
